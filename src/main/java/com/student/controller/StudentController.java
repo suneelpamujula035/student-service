@@ -15,6 +15,7 @@ public class StudentController {
     @Autowired
     private StudentRepository studentRepository;
 
+    //getAllStudents
     @QueryMapping
     public List<Student> getAllStudents()
     {
