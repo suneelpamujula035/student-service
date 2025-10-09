@@ -26,7 +26,7 @@ jobs:
       # 3. Install Copilot CLI
       - name: Install GitHub Copilot CLI
         run: |
-          npm install -g @githubnext/copilot-cli
+          npm install githubnext/copilot-cli
 
       # 4. Authenticate Copilot CLI
       - name: Authenticate Copilot CLI
