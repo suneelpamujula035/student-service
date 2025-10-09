@@ -1,4 +1,4 @@
-name: Build and Push Docker Image to Docker Hub
+name: Build, Generate Tests, and Push Docker Image
 
 on:
   push:
@@ -18,6 +18,53 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Identify Modified Java Files
+        id: changes
+        run: |
+          modified_files=$(git diff --name-only HEAD^ HEAD | grep -E '\.java$' || true)
+          echo "modified_files=$modified_files" >> $GITHUB_ENV
+
+      - name: Install EvoSuite
+        # Make sure to have EvoSuite locally to generate unit tests automatically
+        run: |
+          mkdir -p evosuite
+          curl -L -o evosuite/evosuite.jar https://github.com/EvoSuite/evosuite/releases/download/v1.0.9/EvoSuite-1.0.9.jar
+
+      - name: Generate Unit Tests for Modified Java Files
+        if: env.modified_files != ""
+        run: |
+          echo "Modified files: $modified_files"
+          mkdir -p evosuite-tests
+          for file in $modified_files; do
+            # Fetch the class name and package
+            class_name=$(basename $file .java)
+            package=$(dirname $file | sed -e 's/\//./g')
+
+            # Generate unit tests
+            java -jar evosuite/evosuite.jar \
+              -generateTests \
+              -class ${package}.${class_name} \
+              -projectCP target/classes \
+              -Dtest_dir=evosuite-tests
+          done
+
+      - name: Archive Generated Unit Tests
+        if: env.modified_files != ""
+        uses: actions/upload-artifact@v3
+        with:
+          name: EvoSuite-Generated-Tests
+          path: evosuite-tests
+
+      - name: Verify Generated Tests by Running Tests with Maven
+        if: env.modified_files != ""
+        run: |
+          # Copy the generated tests into the test directory
+          mkdir -p src/test/java
+          cp -r evosuite-tests/* src/test/java/
+
+          # Run the tests to verify quality
+          mvn test
 
       - name: Build with Maven
         run: mvn clean package -DskipTests
