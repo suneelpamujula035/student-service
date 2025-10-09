@@ -37,8 +37,10 @@ jobs:
       - name: Identify Modified Java Files
         id: changes
         run: |
+          # Script to find modified .java files
           modified_files=$(git diff --name-only HEAD^ HEAD | grep -E '\.java$' || true)
           echo "Identified modified files: $modified_files"
+          # Save modified file list for next steps
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
       # 6. Download EvoSuite
@@ -53,23 +55,28 @@ jobs:
           echo "Modified files: $modified_files"
           mkdir -p evosuite-tests
           for file in $modified_files; do
-            # Extract the fully qualified class name
-            class_name=$(basename $file .java)
-            package=$(echo $file | sed -E 's/src\/main\/java\/|\.java$//g' | sed 's/\//./g')
+            # Obtain the package path and remove `src/main/java/`
+            package=$(echo "$file" | sed -E 's/src\/main\/java\/|\/[^\/]+$//g' | sed 's/\//./g')
+            # Extract the class name from the file name
+            class_name=$(basename "$file" .java)
+            # Combine package and class to get the fully qualified class name
             full_class_name=${package}.${class_name}
+          
             echo "Processing ${full_class_name}"
 
-            # Run EvoSuite
+            # Call EvoSuite to generate tests
             java -jar evosuite.jar \
               -generateTests \
-              -class ${full_class_name} \
+              -class "${full_class_name}" \
               -projectCP target/classes \
               -Dtest_dir=evosuite-tests || echo "EvoSuite failed for ${full_class_name}"
           done
+
+          # Debug: List the contents of the test directory
           echo "Generated tests directory contents:"
           ls -R evosuite-tests
 
-      # 8. Warning if no modified files
+      # 8. Warning if no files are modified
       - name: Skip Workflow Warning
         if: ${{ env.modified_files == '' }}
         run: |
