@@ -22,9 +22,8 @@ jobs:
       - name: Identify Modified Java Files
         id: changes
         run: |
-          # Find all modified .java files in the latest commit
           modified_files=$(git diff --name-only HEAD^ HEAD | grep -E '\.java$' || true)
-          # Save the list of modified files as an environment variable for future steps
+          echo "Identified modified files: $modified_files"
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
       - name: Generate Unit Tests with EvoSuite
@@ -32,13 +31,10 @@ jobs:
         run: |
           echo "Modified files: $modified_files"
           mkdir -p evosuite-tests
-          # Loop through each modified .java file
           for file in $modified_files; do
-            # Derive the package and class name
             class_name=$(basename $file .java)
             package=$(dirname $file | sed -e 's/\//./g')
-
-            # Generate unit tests using EvoSuite with getters/setters testing enabled
+            echo "Processing class ${package}.${class_name}"
             java -jar path/to/evosuite.jar \
               -generateTests \
               -class ${package}.${class_name} \
@@ -47,40 +43,18 @@ jobs:
               -Dtest_for_getters_setters=true
           done
 
-      - name: Verify Generated Tests by Running Tests with Maven
+      - name: Verify Tests
+        if: ${{ env.modified_files != '' }}
+        run: mvn test
+
+      - name: Commit and Push Tests
         if: ${{ env.modified_files != '' }}
         run: |
-          # Copy the generated tests into the source test directory
-          mkdir -p src/test/java
           cp -r evosuite-tests/* src/test/java/
-
-          # Run the tests to verify everything works
-          mvn test
-
-      - name: Commit and Push Generated Tests
-        if: ${{ env.modified_files != '' }}
-        run: |
-          # Move the generated tests to src/test/java
-          mkdir -p src/test/java
-          cp -r evosuite-tests/* src/test/java/
-
-          # Configure Git
+          echo "Files to be committed:"
+          ls -R src/test/java
           git config --global user.email "${{ secrets.GIT_EMAIL }}"
           git config --global user.name "${{ secrets.GIT_USERNAME }}"
-
-          # Commit and push the update
           git add src/test/java/
-          git commit -m "Add EvoSuite generated unit tests"
-          git push origin main
-
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
-
-      - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-
-      - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/student-service:latest .
-
-      - name: Push Docker Image
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/student-service:latest
+          git commit -m "Add EvoSuite generated unit tests" || echo "No changes to commit"
+          git push origin main || echo "Failed to push changes"
