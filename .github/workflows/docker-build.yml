@@ -60,13 +60,12 @@ jobs:
               -generateTests \
               -class ${package}.${class_name} \
               -projectCP target/classes \
-              -Dtest_dir=evosuite-tests \
-              -Dtest_for_getters_setters=true || echo "EvoSuite failed for ${package}.${class_name}"
+              -Dtest_dir=evosuite-tests || echo "EvoSuite failed for ${package}.${class_name}"
           done
           echo "Generated tests directory contents:"
           ls -R evosuite-tests
 
-      # 8. Warning if no modified files
+      # 8. Warning if no files are modified
       - name: Skip Workflow Warning
         if: ${{ env.modified_files == '' }}
         run: |
