@@ -22,14 +22,57 @@ jobs:
       - name: Identify Modified Java Files
         id: changes
         run: |
+          # Find all modified .java files in the latest commit
           modified_files=$(git diff --name-only HEAD^ HEAD | grep -E '\.java$' || true)
+          # Save the list of modified files as an environment variable for future steps
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
       - name: Generate Unit Tests with EvoSuite
-        if: env.modified_files != ""
+        if: ${{ env.modified_files != '' }}
         run: |
           echo "Modified files: $modified_files"
-          mvn dependency:copy-dependencies # Ensure EvoSuite CLI is available
+          # Install dependencies to ensure EvoSuite can run
+          mvn dependency:copy-dependencies
           mkdir -p evosuite-tests
+          # Loop through each modified .java file
           for file in $modified_files; do
-            class_name=$(echo $file | sed ' Hamilton policiespun
+            # Derive the package and class name
+            class_name=$(basename $file .java)
+            package=$(dirname $file | sed -e 's/\//./g')
+          
+            # Generate unit tests using EvoSuite
+            java -jar path/to/evosuite.jar \
+              -generateTests \
+              -class ${package}.${class_name} \
+              -projectCP target/classes \
+              -Dtest_dir=evosuite-tests
+          done
+
+      - name: Archive Generated Unit Tests
+        if: ${{ env.modified_files != '' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: EvoSuite-Generated-Tests
+          path: evosuite-tests
+
+      - name: Verify Generated Tests by Running Tests with Maven
+        if: ${{ env.modified_files != '' }}
+        run: |
+          # Copy the generated tests into the source test directory
+          mkdir -p src/test/java
+          cp -r evosuite-tests/* src/test/java/
+
+          # Run the tests to verify everything works
+          mvn test
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Build Docker Image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/student-service:latest .
+
+      - name: Push Docker Image
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/student-service:latest
