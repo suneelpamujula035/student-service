@@ -31,15 +31,13 @@ jobs:
         if: ${{ env.modified_files != '' }}
         run: |
           echo "Modified files: $modified_files"
-          # Install dependencies to ensure EvoSuite can run
-          mvn dependency:copy-dependencies
           mkdir -p evosuite-tests
           # Loop through each modified .java file
           for file in $modified_files; do
             # Derive the package and class name
             class_name=$(basename $file .java)
             package=$(dirname $file | sed -e 's/\//./g')
-          
+
             # Generate unit tests using EvoSuite
             java -jar path/to/evosuite.jar \
               -generateTests \
@@ -47,13 +45,6 @@ jobs:
               -projectCP target/classes \
               -Dtest_dir=evosuite-tests
           done
-
-      - name: Archive Generated Unit Tests
-        if: ${{ env.modified_files != '' }}
-        uses: actions/upload-artifact@v3.2.0
-        with:
-          name: EvoSuite-Generated-Tests
-          path: evosuite-tests
 
       - name: Verify Generated Tests by Running Tests with Maven
         if: ${{ env.modified_files != '' }}
