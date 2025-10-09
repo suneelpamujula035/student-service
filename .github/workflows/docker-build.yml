@@ -56,6 +56,22 @@ jobs:
           # Run the tests to verify everything works
           mvn test
 
+      - name: Commit and Push Generated Tests
+        if: ${{ env.modified_files != '' }}
+        run: |
+          # Move the generated tests to src/test/java
+          mkdir -p src/test/java
+          cp -r evosuite-tests/* src/test/java/
+
+          # Configure Git
+          git config --global user.email "${{ secrets.GIT_EMAIL }}"
+          git config --global user.name "${{ secrets.GIT_USERNAME }}"
+
+          # Commit and push the update
+          git add src/test/java/
+          git commit -m "Add EvoSuite generated unit tests"
+          git push origin main
+
       - name: Build with Maven
         run: mvn clean package -DskipTests
 
