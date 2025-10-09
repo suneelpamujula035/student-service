@@ -23,7 +23,17 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Identify Modified Java Files
+      # 3. Install Copilot CLI
+      - name: Install GitHub Copilot CLI
+        run: |
+          npm install -g @githubnext/copilot-cli
+
+      # 4. Authenticate Copilot CLI
+      - name: Authenticate Copilot CLI
+        run: |
+          copilot auth login --github-token "${{ secrets.GITHUB_TOKEN }}"
+
+      # 5. Identify Modified Java Files
       - name: Identify Modified Java Files
         id: changes
         run: |
@@ -31,8 +41,8 @@ jobs:
           echo "Identified modified files: $modified_files"
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
-      # 4. Generate Unit Tests with GitHub Copilot
-      - name: Generate Unit Tests using GitHub Copilot AI
+      # 6. Generate Unit Tests using GitHub Copilot AI
+      - name: Generate Unit Tests using Copilot AI
         if: ${{ env.modified_files != '' }}
         run: |
           mkdir -p generated-tests  # Create folder to store generated tests
@@ -43,7 +53,7 @@ jobs:
             class_name=$(basename "$file" .java)
             test_file="generated-tests/${class_name}Test.java"
 
-            # Call GitHub Copilot CLI to generate the test for the class
+            # Call Copilot CLI to generate the test for the class
             copilot generate "$file" > "$test_file" || echo "Failed to generate test for $class_name"
 
             echo "Test generated for class $class_name at $test_file"
@@ -52,8 +62,7 @@ jobs:
           echo "Generated tests directory contents:"
           ls -R generated-tests
 
-      # 5. Verify Generated Tests (Optional)
-      # Run the generated tests using Maven
+      # 7. Verify Generated Tests (Optional)
       - name: Verify Generated Tests
         if: ${{ env.modified_files != '' }}
         run: |
@@ -61,8 +70,8 @@ jobs:
           mv generated-tests/* src/test/java/  # Move tests into the src/test/java/ directory
           mvn test
 
-      # 6. Commit and Push Generated Tests
-      - name: Commit and Push Generated Tests
+      # 8. Commit and Push Generated Tests
+      - name: Commit and Push Tests
         if: ${{ env.modified_files != '' }}
         run: |
           git config --global user.email "you@example.com"
