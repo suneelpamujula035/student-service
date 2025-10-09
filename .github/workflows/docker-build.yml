@@ -53,19 +53,23 @@ jobs:
           echo "Modified files: $modified_files"
           mkdir -p evosuite-tests
           for file in $modified_files; do
+            # Extract the fully qualified class name
             class_name=$(basename $file .java)
-            package=$(dirname $file | sed -e 's/\//./g')
-            echo "Processing ${package}.${class_name}"
+            package=$(echo $file | sed -E 's/src\/main\/java\/|\.java$//g' | sed 's/\//./g')
+            full_class_name=${package}.${class_name}
+            echo "Processing ${full_class_name}"
+
+            # Run EvoSuite
             java -jar evosuite.jar \
               -generateTests \
-              -class ${package}.${class_name} \
+              -class ${full_class_name} \
               -projectCP target/classes \
-              -Dtest_dir=evosuite-tests || echo "EvoSuite failed for ${package}.${class_name}"
+              -Dtest_dir=evosuite-tests || echo "EvoSuite failed for ${full_class_name}"
           done
           echo "Generated tests directory contents:"
           ls -R evosuite-tests
 
-      # 8. Warning if no files are modified
+      # 8. Warning if no modified files
       - name: Skip Workflow Warning
         if: ${{ env.modified_files == '' }}
         run: |
