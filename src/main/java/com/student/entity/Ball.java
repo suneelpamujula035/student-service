@@ -1,11 +1,11 @@
 package com.student.entity;
 
-public class Bike {
+public class Ball {
     private String name;
 
     @Override
     public String toString() {
-        return "Bike{" +
+        return "Ball{" +
                 "name='" + name + '\'' +
                 '}';
     }
@@ -18,10 +18,10 @@ public class Bike {
         this.name = name;
     }
 
-    public Bike() {
+    public Ball(String name) {
+        this.name = name;
     }
 
-    public Bike(String name) {
-        this.name = name;
+    public Ball() {
     }
 }

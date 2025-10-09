@@ -1,4 +1,4 @@
-name: Build, Test, and Push Docker Image to Docker Hub
+name: Generate and Commit Unit Tests with GitHub Copilot AI
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
       - main
 
 jobs:
-  build-and-push:
+  generate-unit-tests:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the code
+      # 1. Checkout the Code
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -23,17 +23,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Compile the source code
-      - name: Compile Java Code with Maven
-        run: mvn clean compile
-
-      # 4. Verify compiled classes
-      - name: Verify Compiled Classes
-        run: |
-          echo "Listing compiled classes in target/classes:"
-          ls -R target/classes
-
-      # 5. Identify modified .java files
+      # 3. Identify Modified Java Files
       - name: Identify Modified Java Files
         id: changes
         run: |
@@ -41,60 +31,43 @@ jobs:
           echo "Identified modified files: $modified_files"
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
-      # 6. Download EvoSuite
-      - name: Download EvoSuite
-        run: |
-          curl -L https://github.com/EvoSuite/evosuite/releases/latest/download/evosuite-1.2.0.jar -o evosuite.jar
-
-      # 7. Generate Unit Tests with EvoSuite
-      - name: Generate Unit Tests with EvoSuite
+      # 4. Generate Unit Tests with GitHub Copilot
+      - name: Generate Unit Tests using GitHub Copilot AI
         if: ${{ env.modified_files != '' }}
         run: |
-          echo "Modified files: $modified_files"
-          mkdir -p evosuite-tests
+          mkdir -p generated-tests  # Create folder to store generated tests
+          echo "Processing modified files: $modified_files"
+          
           for file in $modified_files; do
-            # Extract fully qualified class name
-            package=$(echo "$file" | sed -E 's/src\/main\/java\/|\/[^\/]+$//g' | sed 's/\//./g')
+            # Extract the class name and identify the corresponding test file
             class_name=$(basename "$file" .java)
-            full_class_name=${package}.${class_name}
-            echo "Processing ${full_class_name}"
+            test_file="generated-tests/${class_name}Test.java"
 
-            # EvoSuite command with open modules
-            java --add-opens java.base/java.util=ALL-UNNAMED \
-                 --add-opens java.base/java.lang=ALL-UNNAMED \
-                 --add-opens java.desktop/java.awt=ALL-UNNAMED \
-                 -jar evosuite.jar \
-                 -generateTests \
-                 -class "${full_class_name}" \
-                 -projectCP target/classes \
-                 -Dtest_dir=evosuite-tests || echo "EvoSuite failed for ${full_class_name}"
+            # Call GitHub Copilot CLI to generate the test for the class
+            copilot generate "$file" > "$test_file" || echo "Failed to generate test for $class_name"
+
+            echo "Test generated for class $class_name at $test_file"
           done
 
-          # Debug: List the contents of the test directory
           echo "Generated tests directory contents:"
-          ls -R evosuite-tests
+          ls -R generated-tests
 
-      # 8. Warning if no files are modified
-      - name: Skip Workflow Warning
-        if: ${{ env.modified_files == '' }}
-        run: |
-          echo "No Java files were modified in the last commit. Skipping EvoSuite test generation."
-
-      # 9. Run generated tests with Maven
-      - name: Verify Tests
-        if: ${{ env.modified_files != '' }}
-        run: mvn test
-
-      # 10. Commit and Push Tests
-      - name: Commit and Push Tests
+      # 5. Verify Generated Tests (Optional)
+      # Run the generated tests using Maven
+      - name: Verify Generated Tests
         if: ${{ env.modified_files != '' }}
         run: |
-          cp -r evosuite-tests/* src/test/java/
-          echo "Files copied to src/test/java:"
-          ls -R src/test/java
+          mkdir -p src/test/java/
+          mv generated-tests/* src/test/java/  # Move tests into the src/test/java/ directory
+          mvn test
+
+      # 6. Commit and Push Generated Tests
+      - name: Commit and Push Generated Tests
+        if: ${{ env.modified_files != '' }}
+        run: |
+          git config --global user.email "you@example.com"
+          git config --global user.name "GitHub Actions"
           
-          git config --global user.email "${{ secrets.GIT_EMAIL }}"
-          git config --global user.name "${{ secrets.GIT_USERNAME }}"
           git add src/test/java/
-          git commit -m "Add EvoSuite generated unit tests" || echo "No changes to commit"
-          git push origin main || echo "Failed to push changes"
+          git commit -m "Automatically generated unit tests for modified files" || echo "No changes to commit"
+          git push origin main || echo "Push failed"
