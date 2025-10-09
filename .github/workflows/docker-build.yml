@@ -26,6 +26,11 @@ jobs:
           echo "Identified modified files: $modified_files"
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
+      - name: Debug Maven Build Output
+        run: |
+          echo "Listing compiled classes in target/classes:"
+          ls -R target/classes
+
       - name: Generate Unit Tests with EvoSuite
         if: ${{ env.modified_files != '' }}
         run: |
@@ -34,14 +39,21 @@ jobs:
           for file in $modified_files; do
             class_name=$(basename $file .java)
             package=$(dirname $file | sed -e 's/\//./g')
-            echo "Processing class ${package}.${class_name}"
+            echo "Processing ${package}.${class_name}"
             java -jar path/to/evosuite.jar \
               -generateTests \
               -class ${package}.${class_name} \
               -projectCP target/classes \
               -Dtest_dir=evosuite-tests \
-              -Dtest_for_getters_setters=true
+              -Dtest_for_getters_setters=true || echo "EvoSuite failed for ${package}.${class_name}"
           done
+          echo "Generated tests directory contents:"
+          ls -R evosuite-tests
+
+      - name: Skip Workflow Warning
+        if: ${{ env.modified_files == '' }}
+        run: |
+          echo "No Java files were modified in the last commit. Skipping EvoSuite test generation."
 
       - name: Verify Tests
         if: ${{ env.modified_files != '' }}
@@ -51,8 +63,9 @@ jobs:
         if: ${{ env.modified_files != '' }}
         run: |
           cp -r evosuite-tests/* src/test/java/
-          echo "Files to be committed:"
+          echo "Files copied to src/test/java:"
           ls -R src/test/java
+          
           git config --global user.email "${{ secrets.GIT_EMAIL }}"
           git config --global user.name "${{ secrets.GIT_USERNAME }}"
           git add src/test/java/
