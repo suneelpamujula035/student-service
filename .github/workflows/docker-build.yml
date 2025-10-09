@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout Full Repository History
+      # 1. Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Fetch the full Git history so git diff works correctly
+          fetch-depth: 0  # Fetch full history for git diff
 
       # 2. Set up JDK 17
       - name: Set up JDK 17
@@ -23,26 +23,30 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Compile the Java Code
+      # 3. Compile the source code
       - name: Compile Java Code with Maven
         run: mvn clean compile
 
-      # 4. Verify Compiled Classes
+      # 4. Verify compiled classes
       - name: Verify Compiled Classes
         run: |
           echo "Listing compiled classes in target/classes:"
           ls -R target/classes
 
-      # 5. Identify Modified Java Files
+      # 5. Identify modified .java files
       - name: Identify Modified Java Files
         id: changes
         run: |
-          # Find all modified .java files in the latest commit
           modified_files=$(git diff --name-only HEAD^ HEAD | grep -E '\.java$' || true)
           echo "Identified modified files: $modified_files"
           echo "modified_files=$modified_files" >> $GITHUB_ENV
 
-      # 6. Generate Unit Tests with EvoSuite
+      # 6. Download EvoSuite
+      - name: Download EvoSuite
+        run: |
+          curl -L https://github.com/EvoSuite/evosuite/releases/latest/download/evosuite-1.2.0.jar -o evosuite.jar
+
+      # 7. Generate Unit Tests with EvoSuite
       - name: Generate Unit Tests with EvoSuite
         if: ${{ env.modified_files != '' }}
         run: |
@@ -52,7 +56,7 @@ jobs:
             class_name=$(basename $file .java)
             package=$(dirname $file | sed -e 's/\//./g')
             echo "Processing ${package}.${class_name}"
-            java -jar path/to/evosuite.jar \
+            java -jar evosuite.jar \
               -generateTests \
               -class ${package}.${class_name} \
               -projectCP target/classes \
@@ -62,18 +66,18 @@ jobs:
           echo "Generated tests directory contents:"
           ls -R evosuite-tests
 
-      # 7. Warning if No Files Were Modified
+      # 8. Warning if no modified files
       - name: Skip Workflow Warning
         if: ${{ env.modified_files == '' }}
         run: |
           echo "No Java files were modified in the last commit. Skipping EvoSuite test generation."
 
-      # 8. Verify Tests by Running Them with Maven
+      # 9. Run generated tests with Maven
       - name: Verify Tests
         if: ${{ env.modified_files != '' }}
         run: mvn test
 
-      # 9. Commit and Push Generated Tests
+      # 10. Commit and push generated tests
       - name: Commit and Push Tests
         if: ${{ env.modified_files != '' }}
         run: |
