@@ -1,16 +1,19 @@
 package com.student.entity;
 
-public class Bike {
+public class Movie {
 
     private int id;
     private String name;
 
-    public Bike() {
+    public Movie() {
     }
 
-    public Bike(int id, String name) {
-        this.id = id;
-        this.name = name;
+    @Override
+    public String toString() {
+        return "Movie{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
     }
 
     public int getId() {
@@ -29,13 +32,8 @@ public class Bike {
         this.name = name;
     }
 
-    @Override
-    public String toString() {
-        return "Bike{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                '}';
+    public Movie(int id, String name) {
+        this.id = id;
+        this.name = name;
     }
 }
-
-
