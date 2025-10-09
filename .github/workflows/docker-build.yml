@@ -32,7 +32,7 @@ jobs:
           curl -L -o evosuite/evosuite.jar https://github.com/EvoSuite/evosuite/releases/download/v1.0.9/EvoSuite-1.0.9.jar
 
       - name: Generate Unit Tests for Modified Java Files
-        if: env.modified_files != ""
+        if: ${{ env.modified_files != '' }}
         run: |
           echo "Modified files: $modified_files"
           mkdir -p evosuite-tests
@@ -50,14 +50,14 @@ jobs:
           done
 
       - name: Archive Generated Unit Tests
-        if: env.modified_files != ""
+        if: ${{ env.modified_files != '' }}
         uses: actions/upload-artifact@v3
         with:
           name: EvoSuite-Generated-Tests
           path: evosuite-tests
 
       - name: Verify Generated Tests by Running Tests with Maven
-        if: env.modified_files != ""
+        if: ${{ env.modified_files != '' }}
         run: |
           # Copy the generated tests into the test directory
           mkdir -p src/test/java
